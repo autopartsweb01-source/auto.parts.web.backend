@@ -20,6 +20,7 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 // ---------- Services ----------
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<TwilioOtpService>();
+builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<RazorpayService>();
@@ -46,6 +47,15 @@ builder.Services.AddAuthorization();
 
 // ---------- Controllers ----------
 builder.Services.AddControllers();
+
+// ---------- CORS ----------
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        b => b.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader());
+});
 
 // ---------- Swagger + JWT Support ----------
 builder.Services.AddEndpointsApiExplorer();
@@ -92,7 +102,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+app.UseCors("AllowAll");
+
+// app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();

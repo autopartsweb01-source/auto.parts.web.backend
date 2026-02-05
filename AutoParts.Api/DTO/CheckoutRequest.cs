@@ -1,5 +1,5 @@
-﻿namespace AutoParts.Api.DTO
+namespace AutoParts.Api.DTO
 {
-    public record CheckoutRequest(string Address, string PaymentMode);
+    public record CheckoutRequest(string Address, string PaymentMethod);
 
 }

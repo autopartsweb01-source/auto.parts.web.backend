@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
@@ -25,7 +25,7 @@ public class JwtTokenService
         var claims = new[]
         {
             new Claim("id", user.Id.ToString()),
-            new Claim("phone", user.PhoneNumber),
+            new Claim("phone", user.Phone ?? ""),
             new Claim(ClaimTypes.Role, user.Role)
         };
 

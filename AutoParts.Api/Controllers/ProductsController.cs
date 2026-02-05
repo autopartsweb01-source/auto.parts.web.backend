@@ -1,4 +1,4 @@
-﻿using AutoParts.Api.Data;
+using AutoParts.Api.Data;
 using AutoParts.Api.Domain;
 using AutoParts.Api.Repositories;
 using Microsoft.AspNetCore.Authorization;
@@ -21,7 +21,7 @@ public class ProductsController : ControllerBase
 
         if (typeId.HasValue) q = q.Where(x => x.PartTypeId == typeId);
         if (!string.IsNullOrWhiteSpace(search))
-            q = q.Where(x => x.Name.Contains(search));
+            q = q.Where(x => x.Title.Contains(search));
 
         var total = await q.CountAsync();
         var items = await q.Skip((page - 1) * size).Take(size).ToListAsync();
@@ -75,7 +75,7 @@ public class ProductsController : ControllerBase
             }
 
             bool exists = await _db.Products
-                .AnyAsync(x => x.Name.ToLower() == name.ToLower() || x.SKU == sku);
+                .AnyAsync(x => x.Title.ToLower() == name.ToLower() || x.SKU == sku);
 
             if (exists)
             {
@@ -96,12 +96,14 @@ public class ProductsController : ControllerBase
 
             var product = new Product
             {
-                Name = name,
+                Title = name,
                 SKU = sku,
-                Price = decimal.TryParse(priceStr, out var pr) ? pr : 0,
-                StockQty = int.TryParse(stockStr, out var sq) ? sq : 0,
-                PartTypeId = type.Id,
-                ImageSource = "/images/no-image.png"
+                Price = decimal.TryParse(priceStr, out var p) ? p : 0,
+                Quantity = int.TryParse(stockStr, out var s) ? s : 0,
+                ImageDataUrl = "",
+                Category = typeName,
+                Tag = "",
+                PartTypeId = type.Id
             };
 
             _db.Products.Add(product);
@@ -110,13 +112,6 @@ public class ProductsController : ControllerBase
 
         await _db.SaveChangesAsync();
 
-        return Ok(new
-        {
-            message = "Import completed",
-            inserted,
-            skipped,
-            skippedRows
-        });
+        return Ok(new { inserted, skipped, skippedRows });
     }
-
 }

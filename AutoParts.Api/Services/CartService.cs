@@ -1,4 +1,4 @@
-﻿using AutoParts.Api.Data;
+using AutoParts.Api.Data;
 using AutoParts.Api.Domain;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,7 +37,7 @@ public class CartService : ICartService
             items = cart.Items.Select(x => new
             {
                 x.ProductId,
-                x.Product.Name,
+                x.Product.Title,
                 x.Qty,
                 x.UnitPrice,
                 lineTotal = x.UnitPrice * x.Qty

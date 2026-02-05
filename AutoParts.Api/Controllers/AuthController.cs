@@ -1,4 +1,4 @@
-﻿using AutoParts.Api.Auth;
+using AutoParts.Api.Auth;
 using AutoParts.Api.Data;
 using AutoParts.Api.Domain;
 using AutoParts.Api.DTO;
@@ -13,12 +13,14 @@ public class AuthController : ControllerBase
     private readonly AppDbContext _db;
     private readonly JwtTokenService _jwt;
     private readonly TwilioOtpService _otp;
+    private readonly EmailService _email;
 
-    public AuthController(AppDbContext db, JwtTokenService jwt, TwilioOtpService otp)
+    public AuthController(AppDbContext db, JwtTokenService jwt, TwilioOtpService otp, EmailService email)
     {
         _db = db;
         _jwt = jwt;
         _otp = otp;
+        _email = email;
     }
 
     private static string NormalizePhone(string phone)
@@ -33,25 +35,40 @@ public class AuthController : ControllerBase
     {
         var phone = NormalizePhone(request.Phone);
 
-        var user = await _db.Users.FirstOrDefaultAsync(x => x.PhoneNumber == phone)
-                   ?? new User
-                   {
-                       PhoneNumber = phone,
-                       Name = "User",
-                       Role = "User"
-                   };
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Phone == phone);
+
+        if (user == null)
+        {
+            user = new User
+            {
+                Phone = phone,
+                FullName = "User",
+                Role = "customer",
+                Email = request.Email ?? ""
+            };
+            _db.Users.Add(user);
+        }
+        else if (!string.IsNullOrEmpty(request.Email))
+        {
+            // Update email if provided
+            user.Email = request.Email;
+        }
 
         var otp = new Random().Next(100000, 999999).ToString();
 
         user.OtpHash = BCrypt.Net.BCrypt.HashPassword(otp);
         user.OtpExpiry = DateTime.UtcNow.AddMinutes(5);
 
-        if (user.Id == 0)
-            _db.Users.Add(user);
-
         await _db.SaveChangesAsync();
 
+        // Send SMS
         await _otp.SendSmsOtpAsync(phone, otp);
+
+        // Send Email (if available)
+        if (!string.IsNullOrEmpty(user.Email))
+        {
+            await _email.SendOtpEmailAsync(user.Email, otp);
+        }
 
         return Ok(new { message = "OTP sent successfully" });
     }
@@ -62,7 +79,7 @@ public class AuthController : ControllerBase
     {
         var phone = NormalizePhone(request.Phone);
 
-        var user = await _db.Users.FirstOrDefaultAsync(x => x.PhoneNumber == phone);
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Phone == phone);
         if (user == null)
             return Unauthorized("User not found");
 
@@ -81,7 +98,7 @@ public class AuthController : ControllerBase
         return Ok(new
         {
             token,
-            user = new { user.Id, user.PhoneNumber, user.Role },
+            user = new { user.Id, Phone = user.Phone, user.Role, user.FullName, user.Email },
             message = "OTP verified successfully"
         });
     }

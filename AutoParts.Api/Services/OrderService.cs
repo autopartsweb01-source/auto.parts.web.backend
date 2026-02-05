@@ -1,4 +1,4 @@
-﻿using AutoParts.Api.Data;
+using AutoParts.Api.Data;
 using AutoParts.Api.Domain;
 using AutoParts.Api.DTO;
 using Microsoft.EntityFrameworkCore;
@@ -36,24 +36,27 @@ public class OrderService : IOrderService
     public async Task<object> Checkout(int userId, CheckoutRequest req)
     {
         var cart = await _cart.GetOrCreateCart(userId);
+        var user = await _db.Users.FindAsync(userId);
 
         if (!cart.Items.Any())
             throw new Exception("Cart is empty");
 
         foreach (var i in cart.Items)
-            if (i.Qty > i.Product.StockQty)
-                throw new Exception($"Insufficient stock for {i.Product.Name}");
+            if (i.Qty > i.Product.Quantity)
+                throw new Exception($"Insufficient stock for {i.Product.Title}");
 
         var total = cart.Items.Sum(x => x.UnitPrice * x.Qty);
 
         var order = new Order
         {
             UserId = userId,
+            CustomerName = user?.FullName ?? "Unknown",
+            CustomerPhone = user?.Phone ?? "Unknown",
             Address = req.Address,
-            TotalAmount = total,
-            OrderStatus = "Placed",
+            Total = total,
+            Status = "Placed",
             PaymentStatus = "Pending",
-            PaymentMode = req.PaymentMode
+            PaymentMethod = req.PaymentMethod
         };
 
         _db.Orders.Add(order);
@@ -71,7 +74,7 @@ public class OrderService : IOrderService
                 Price = i.UnitPrice
             });
 
-            i.Product.StockQty -= i.Qty;
+            i.Product.Quantity -= i.Qty;
         }
 
         _db.CartItems.RemoveRange(cart.Items);
@@ -79,14 +82,14 @@ public class OrderService : IOrderService
 
         string upiIntent = null;
 
-        if (req.PaymentMode == "UPI_INTENT")
+        if (req.PaymentMethod == "UPI_INTENT")
         {
             upiIntent =
                 $"upi://pay?pa=merchant@upi&pn=AutoParts&am={total}&cu=INR&tn=Order%20{order.Id}";
             await LogTimeline(order.Id, "UPI Intent Generated");
         }
 
-        if (req.PaymentMode == "RAZORPAY_UPI")
+        if (req.PaymentMethod == "RAZORPAY_UPI")
         {
             var rp = _razorpay.CreateOrder(total, $"ORD-{order.Id}");
             order.GatewayOrderId = rp["id"];
@@ -97,10 +100,10 @@ public class OrderService : IOrderService
         return new
         {
             order.Id,
-            order.TotalAmount,
-            order.PaymentMode,
+            order.Total,
+            order.PaymentMethod,
             order.PaymentStatus,
-            order.OrderStatus,
+            order.Status,
             razorpayOrderId = order.GatewayOrderId,
             upiIntent
         };
@@ -117,7 +120,7 @@ public class OrderService : IOrderService
         {
             // rollback stock on failure
             foreach (var i in order.Items)
-                i.Product.StockQty += i.Qty;
+                i.Product.Quantity += i.Qty;
 
             order.PaymentStatus = "Failed";
             await _db.SaveChangesAsync();
@@ -126,7 +129,7 @@ public class OrderService : IOrderService
             throw new Exception("Payment verification failed");
         }
 
-        order.PaymentStatus = "Paid";
+        order.PaymentStatus = "Success";
         order.GatewayPaymentId = r.RazorpayPaymentId;
         order.GatewaySignature = r.RazorpaySignature;
 
@@ -143,7 +146,7 @@ public class OrderService : IOrderService
             .FirstAsync(x => x.Id == r.OrderId && x.UserId == userId);
 
         order.UpiTxnRef = r.TxnRef;
-        order.PaymentStatus = "Paid";
+        order.PaymentStatus = "Success";
 
         await _db.SaveChangesAsync();
         await LogTimeline(order.Id, "Payment Paid (UPI Intent)", r.TxnRef, userId);
@@ -165,9 +168,9 @@ public class OrderService : IOrderService
             .Select(o => new
             {
                 o.Id,
-                o.TotalAmount,
+                o.Total,
                 o.PaymentStatus,
-                o.OrderStatus,
+                o.Status,
                 o.CreatedAt
             })
             .ToListAsync();
@@ -189,14 +192,14 @@ public class OrderService : IOrderService
         {
             order.Id,
             order.Address,
-            order.PaymentMode,
+            order.PaymentMethod,
             order.PaymentStatus,
-            order.OrderStatus,
-            order.TotalAmount,
+            order.Status,
+            order.Total,
             items = order.Items.Select(i => new
             {
                 i.ProductId,
-                i.Product.Name,
+                i.Product.Title,
                 i.Qty,
                 i.Price,
                 lineTotal = i.Price * i.Qty

@@ -1,4 +1,4 @@
-﻿using AutoParts.Api.Data;
+using AutoParts.Api.Data;
 using AutoParts.Api.Domain;
 using BCrypt.Net;
 using Microsoft.EntityFrameworkCore;
@@ -36,7 +36,7 @@ public class AdminOrderService : IAdminOrderService
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(status))
-            q = q.Where(x => x.OrderStatus == status);
+            q = q.Where(x => x.Status == status);
 
         var total = await q.CountAsync();
 
@@ -45,9 +45,13 @@ public class AdminOrderService : IAdminOrderService
             {
                 o.Id,
                 o.UserId,
-                o.TotalAmount,
+                o.CustomerName,
+                o.CustomerPhone,
+                o.Address,
+                o.Total,
+                o.PaymentMethod,
                 o.PaymentStatus,
-                o.OrderStatus,
+                o.Status,
                 o.CreatedAt
             }).ToListAsync();
 
@@ -58,7 +62,7 @@ public class AdminOrderService : IAdminOrderService
     public async Task<object> Approve(int orderId)
     {
         var o = await _db.Orders.FindAsync(orderId);
-        o.OrderStatus = "Approved";
+        o.Status = "Approved";
         await _db.SaveChangesAsync();
 
         await LogTimeline(orderId, "Order Approved");
@@ -69,7 +73,7 @@ public class AdminOrderService : IAdminOrderService
     public async Task<object> MarkOutForDelivery(int orderId)
     {
         var o = await _db.Orders.FindAsync(orderId);
-        o.OrderStatus = "OutForDelivery";
+        o.Status = "OutForDelivery";
         await _db.SaveChangesAsync();
 
         await LogTimeline(orderId, "Out For Delivery");
@@ -123,7 +127,7 @@ public class AdminOrderService : IAdminOrderService
     public async Task<object> MarkDelivered(int orderId)
     {
         var o = await _db.Orders.FindAsync(orderId);
-        o.OrderStatus = "Delivered";
+        o.Status = "Delivered";
         await _db.SaveChangesAsync();
 
         await LogTimeline(orderId, "Order Delivered");
@@ -140,10 +144,10 @@ public class AdminOrderService : IAdminOrderService
 
         o.IsCancelled = true;
         o.CancelReason = reason;
-        o.OrderStatus = "Cancelled";
+        o.Status = "Cancelled";
 
         foreach (var i in o.Items)
-            i.Product.StockQty += i.Qty;
+            i.Product.Quantity += i.Qty;
 
         await _db.SaveChangesAsync();
 
