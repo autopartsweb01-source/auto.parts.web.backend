@@ -1,11 +1,11 @@
-﻿using AutoParts.Api.Services;
+using AutoParts.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using static AutoParts.Api.DTO.CartDtos;
 
 [ApiController]
 [Route("cart")]
-[Authorize(Roles = "User")]
+[Authorize]
 public class CartController : ControllerBase
 {
     private readonly ICartService _cart;

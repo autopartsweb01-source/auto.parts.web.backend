@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("orders")]
-[Authorize(Roles = "User")]
+[Authorize]
 public class OrdersController : ControllerBase
 {
     private readonly IOrderService _orders;
