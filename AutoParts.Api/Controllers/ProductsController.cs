@@ -16,18 +16,38 @@ public class ProductsController : ControllerBase
 
     // Public list + paging
     [HttpGet]
-    public async Task<IActionResult> Get(int? typeId, string? search, int page = 1, int size = 20)
+    public async Task<IActionResult> Get(int? typeId, string? category, string? search, int page = 1, int size = 20)
     {
         var q = _db.Products.AsQueryable();
 
         if (typeId.HasValue) q = q.Where(x => x.PartTypeId == typeId);
+        if (!string.IsNullOrWhiteSpace(category)) q = q.Where(x => x.Category == category);
         if (!string.IsNullOrWhiteSpace(search))
-            q = q.Where(x => x.Title.Contains(search));
+            q = q.Where(x => x.Title.Contains(search) || x.Tag.Contains(search));
 
         var total = await q.CountAsync();
         var items = await q.Skip((page - 1) * size).Take(size).ToListAsync();
 
         return Ok(new { items, total, page, size });
+    }
+
+    [HttpGet("categories")]
+    public async Task<IActionResult> GetCategories()
+    {
+        var categories = await _db.Products
+            .Select(p => p.Category)
+            .Distinct()
+            .Where(c => !string.IsNullOrEmpty(c))
+            .OrderBy(c => c)
+            .ToListAsync();
+        return Ok(categories);
+    }
+
+    [HttpGet("types")]
+    public async Task<IActionResult> GetPartTypes()
+    {
+        var types = await _db.PartTypes.OrderBy(t => t.Name).ToListAsync();
+        return Ok(types);
     }
 
     // Public get by id
