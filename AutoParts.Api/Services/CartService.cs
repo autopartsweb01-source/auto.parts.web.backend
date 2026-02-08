@@ -103,15 +103,37 @@ public class CartService : ICartService
     {
         var cart = await GetOrCreateCart(userId);
 
+        // Get all product IDs involved
+        var productIds = items.Select(x => x.productId).Distinct().ToList();
+        var products = await _db.Products.Where(p => productIds.Contains(p.Id)).ToListAsync();
+
         foreach (var u in items)
         {
             var item = cart.Items.FirstOrDefault(x => x.ProductId == u.productId);
-            if (item == null) continue;
-
-            if (u.qty <= 0)
-                _db.CartItems.Remove(item);
-            else
-                item.Qty = u.qty;
+            
+            if (item != null)
+            {
+                // Update existing
+                if (u.qty <= 0)
+                    _db.CartItems.Remove(item);
+                else
+                    item.Qty = u.qty;
+            }
+            else if (u.qty > 0)
+            {
+                // Add new
+                var product = products.FirstOrDefault(p => p.Id == u.productId);
+                if (product != null)
+                {
+                    cart.Items.Add(new CartItem
+                    {
+                        ProductId = u.productId,
+                        Qty = u.qty,
+                        UnitPrice = product.Price,
+                        CartId = cart.Id
+                    });
+                }
+            }
         }
 
         cart.UpdatedAt = DateTime.UtcNow;
