@@ -1,5 +1,6 @@
 using AutoParts.Api.Data;
 using AutoParts.Api.Domain;
+using AutoParts.Api.DTO;
 using AutoParts.Api.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -34,84 +35,56 @@ public class ProductsController : ControllerBase
     public async Task<IActionResult> GetById(int id) =>
         Ok(await _db.Products.FindAsync(id));
 
-    // Admin only create (excel upload will be added next)
-    [Authorize(Roles = "User")]
     [HttpPost("import")]
-    public async Task<IActionResult> ImportProducts(IFormFile file)
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Import([FromBody] List<Product> products)
     {
-        if (file == null || file.Length == 0)
-            return BadRequest("Excel file is required.");
+        if (products == null || !products.Any())
+            return BadRequest("No products to import");
 
-        int inserted = 0, skipped = 0;
-        var skippedRows = new List<object>();
-
-        using var stream = new MemoryStream();
-        await file.CopyToAsync(stream);
-        using var package = new ExcelPackage(stream);
-
-        var sheet = package.Workbook.Worksheets[0];
-        int rowCount = sheet.Dimension.Rows;
-
-        for (int row = 2; row <= rowCount; row++)
-        {
-            string name = sheet.Cells[row, 1].Text?.Trim();
-            string sku = sheet.Cells[row, 2].Text?.Trim();
-            string priceStr = sheet.Cells[row, 3].Text?.Trim();
-            string stockStr = sheet.Cells[row, 4].Text?.Trim();
-            string typeName = sheet.Cells[row, 5].Text?.Trim();
-
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                skipped++;
-                skippedRows.Add(new { row, sku, reason = "Missing Product Name" });
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(typeName))
-            {
-                skipped++;
-                skippedRows.Add(new { row, name, sku, reason = "Missing Part Type" });
-                continue;
-            }
-
-            bool exists = await _db.Products
-                .AnyAsync(x => x.Title.ToLower() == name.ToLower() || x.SKU == sku);
-
-            if (exists)
-            {
-                skipped++;
-                skippedRows.Add(new { row, name, sku, reason = "Duplicate Product" });
-                continue;
-            }
-
-            var type = await _db.PartTypes
-                .FirstOrDefaultAsync(x => x.Name.ToLower() == typeName.ToLower());
-
-            if (type == null)
-            {
-                type = new PartType { Name = typeName };
-                _db.PartTypes.Add(type);
-                await _db.SaveChangesAsync();
-            }
-
-            var product = new Product
-            {
-                Title = name,
-                SKU = sku,
-                Price = decimal.TryParse(priceStr, out var p) ? p : 0,
-                Quantity = int.TryParse(stockStr, out var s) ? s : 0,
-                ImageDataUrl = "",
-                Category = typeName,
-                Tag = "",
-                PartTypeId = type.Id
-            };
-
-            _db.Products.Add(product);
-            inserted++;
-        }
-
+        await _db.Products.AddRangeAsync(products);
         await _db.SaveChangesAsync();
 
-        return Ok(new { inserted, skipped, skippedRows });
+        return Ok(new { count = products.Count, message = "Products imported successfully" });
+    }
+
+    // ---------- DELETE PRODUCT ----------
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var product = await _db.Products.FindAsync(id);
+        if (product == null) return NotFound();
+        _db.Products.Remove(product);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Product deleted" });
+    }
+
+    // ---------- BULK DELETE ----------
+    [HttpPost("delete-bulk")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteBulk([FromBody] List<int> ids)
+    {
+        var products = await _db.Products.Where(p => ids.Contains(p.Id)).ToListAsync();
+        if (!products.Any()) return NotFound();
+        
+        _db.Products.RemoveRange(products);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = $"Deleted {products.Count} products" });
+    }
+
+    // ---------- UPDATE PRODUCT ----------
+    [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Update(int id, [FromBody] ProductUpdateDto dto)
+    {
+         var product = await _db.Products.FindAsync(id);
+         if (product == null) return NotFound();
+         
+         if (dto.Quantity.HasValue) product.Quantity = dto.Quantity.Value;
+         if (!string.IsNullOrEmpty(dto.ImageDataUrl)) product.ImageDataUrl = dto.ImageDataUrl;
+         
+         await _db.SaveChangesAsync();
+         return Ok(new { message = "Product updated", product });
     }
 }

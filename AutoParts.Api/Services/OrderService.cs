@@ -52,7 +52,7 @@ public class OrderService : IOrderService
             UserId = userId,
             CustomerName = user?.FullName ?? "Unknown",
             CustomerPhone = user?.Phone ?? "Unknown",
-            Address = req.Address,
+            Address = !string.IsNullOrEmpty(req.Address) ? req.Address : (user?.Address ?? user?.Location ?? "Unknown Address"),
             Total = total,
             Status = "Placed",
             PaymentStatus = "Pending",
@@ -80,7 +80,7 @@ public class OrderService : IOrderService
         _db.CartItems.RemoveRange(cart.Items);
         await _db.SaveChangesAsync();
 
-        string upiIntent = null;
+        string? upiIntent = null;
 
         if (req.PaymentMethod == "UPI_INTENT")
         {

@@ -62,6 +62,7 @@ public class AdminOrderService : IAdminOrderService
     public async Task<object> Approve(int orderId)
     {
         var o = await _db.Orders.FindAsync(orderId);
+        if (o == null) throw new Exception("Order not found");
         o.Status = "Approved";
         await _db.SaveChangesAsync();
 
@@ -73,6 +74,7 @@ public class AdminOrderService : IAdminOrderService
     public async Task<object> MarkOutForDelivery(int orderId)
     {
         var o = await _db.Orders.FindAsync(orderId);
+        if (o == null) throw new Exception("Order not found");
         o.Status = "OutForDelivery";
         await _db.SaveChangesAsync();
 
@@ -127,6 +129,7 @@ public class AdminOrderService : IAdminOrderService
     public async Task<object> MarkDelivered(int orderId)
     {
         var o = await _db.Orders.FindAsync(orderId);
+        if (o == null) throw new Exception("Order not found");
         o.Status = "Delivered";
         await _db.SaveChangesAsync();
 

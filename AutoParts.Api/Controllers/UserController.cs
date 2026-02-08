@@ -1,61 +1,40 @@
 using AutoParts.Api.Data;
-using AutoParts.Api.Domain;
 using AutoParts.Api.DTO;
+using AutoParts.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 
 namespace AutoParts.Api.Controllers;
 
+[Route("api/[controller]")]
 [ApiController]
-[Route("api/user")]
 public class UserController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly IUserService _userService;
 
-    public UserController(AppDbContext db)
+    public UserController(IUserService userService)
     {
-        _db = db;
+        _userService = userService;
     }
 
-    // ---------- GET LOGGED-IN USER PROFILE ----------
-    [HttpGet("profile")]
+    // ---------- GET OWN PROFILE (By Token) ----------
+    [HttpGet("/user/profile")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<UserProfileResponse>>> GetProfile()
+    public async Task<ActionResult<ApiResponse<UserProfileResponse>>> GetOwnProfile()
     {
-        var email = User.FindFirst(ClaimTypes.Email)?.Value;
+        var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
         if (string.IsNullOrEmpty(email))
         {
-             // Try to get by ID if email is missing (legacy flow) or phone
-             // But spec implies Email is key.
-             var userId = User.FindFirst("id")?.Value;
-             if (userId != null) 
-             {
-                 var userById = await _db.Users.FindAsync(int.Parse(userId));
-                 if (userById != null)
-                 {
-                      return Ok(new ApiResponse<UserProfileResponse>
-                      {
-                        Success = true,
-                        Data = new UserProfileResponse
-                        {
-                            Email = userById.Email,
-                            Name = userById.FullName,
-                            Mobile = userById.Phone,
-                            Location = userById.Location
-                        }
-                      });
-                 }
-             }
-             return Unauthorized(new ApiResponse<object> { Success = false, Message = "Unauthorized" });
+             // Fallback for some JWT configurations where "email" claim is used instead of ClaimTypes.Email
+             email = User.FindFirst("email")?.Value;
         }
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (string.IsNullOrEmpty(email))
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid token" });
+
+        var user = await _userService.GetUserByEmailAsync(email);
         if (user == null)
-        {
-            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Unauthorized" });
-        }
+            return NotFound(new ApiResponse<object> { Success = false, Message = "User not found" });
 
         return Ok(new ApiResponse<UserProfileResponse>
         {
@@ -75,7 +54,7 @@ public class UserController : ControllerBase
     [Authorize]
     public async Task<ActionResult<ApiResponse<UserProfileResponse>>> GetProfileByEmail(string email)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        var user = await _userService.GetUserByEmailAsync(email);
         if (user == null)
         {
             return NotFound(new ApiResponse<object> { Success = false, Message = "User not found" });
@@ -92,5 +71,43 @@ public class UserController : ControllerBase
                 Location = user.Location
             }
         });
+    }
+
+    // ---------- ADMIN: GET ALL USERS WITH PAGING ----------
+    [HttpGet("list")]
+    public async Task<IActionResult> GetAllUsers(string? search, int page = 1, int size = 10)
+    {
+        var (items, total) = await _userService.GetAllUsersAsync(search, page, size);
+
+        var resultItems = items.Select(u => new 
+        {
+            u.Id,
+            u.FullName,
+            u.Email,
+            u.Phone,
+            u.Role,
+            u.Address,
+            u.Location
+        });
+
+        return Ok(new { items = resultItems, total, page, size });
+    }
+
+    // ---------- ADMIN: DELETE USER ----------
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteUser(int id)
+    {
+        var success = await _userService.DeleteUserAsync(id);
+        if (!success) return NotFound(new { message = "User not found" });
+
+        return Ok(new { message = "User deleted successfully" });
+    }
+
+    // ---------- ADMIN: BULK DELETE USERS ----------
+    [HttpPost("delete-bulk")]
+    public async Task<IActionResult> DeleteUsers([FromBody] List<int> ids)
+    {
+        var count = await _userService.DeleteUsersAsync(ids);
+        return Ok(new { message = $"{count} users deleted successfully" });
     }
 }

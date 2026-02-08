@@ -22,34 +22,25 @@ public class JwtTokenService
 
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new List<Claim>
+        var claims = new[]
         {
             new Claim("id", user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // Standard sub claim
             new Claim("phone", user.Phone ?? ""),
-            new Claim(ClaimTypes.Role, user.Role)
+            new Claim(ClaimTypes.Email, user.Email), // Standard email claim
+            new Claim("email", user.Email), // Fallback email claim
+            new Claim(ClaimTypes.Role, user.Role),
+            new Claim(ClaimTypes.Name, user.FullName) // Standard name claim
         };
-        
-        if (!string.IsNullOrEmpty(user.Email))
-        {
-            claims.Add(new Claim(ClaimTypes.Email, user.Email));
-        }
 
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"],
             audience: _config["Jwt:Audience"],
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(60), // Spec says 60 minutes
+            expires: DateTime.UtcNow.AddDays(30),
             signingCredentials: creds
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
-    }
-
-    public string GenerateRefreshToken()
-    {
-        var randomNumber = new byte[32];
-        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        rng.GetBytes(randomNumber);
-        return Convert.ToBase64String(randomNumber);
     }
 }

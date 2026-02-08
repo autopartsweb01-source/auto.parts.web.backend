@@ -53,4 +53,44 @@ public class EmailService
             _logger.LogWarning($"[DEV FALLBACK] OTP for {toEmail} is: {otp}");
         }
     }
+
+    public async Task SendResetPasswordEmailAsync(string toEmail, string resetLink)
+    {
+        var host = _config["Smtp:Host"];
+        var port = int.Parse(_config["Smtp:Port"] ?? "587");
+        var fromEmail = _config["Smtp:Email"];
+        var password = _config["Smtp:Password"];
+
+        if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(fromEmail) || string.IsNullOrEmpty(password))
+        {
+            _logger.LogWarning("[EmailService] SMTP not configured. Skipping email.");
+            return;
+        }
+
+        try
+        {
+            using var client = new SmtpClient(host, port)
+            {
+                Credentials = new NetworkCredential(fromEmail, password),
+                EnableSsl = true
+            };
+
+            var mailMessage = new MailMessage
+            {
+                From = new MailAddress(fromEmail, "Auto Parts"),
+                Subject = "Reset Your Password",
+                Body = $"Click the link to reset your password: {resetLink}",
+                IsBodyHtml = false
+            };
+            mailMessage.To.Add(toEmail);
+
+            await client.SendMailAsync(mailMessage);
+            _logger.LogInformation($"Reset password email sent to {toEmail}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Failed to send reset email to {toEmail}");
+            _logger.LogWarning($"[DEV FALLBACK] Reset link for {toEmail} is: {resetLink}");
+        }
+    }
 }

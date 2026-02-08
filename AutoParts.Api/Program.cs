@@ -26,6 +26,7 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<RazorpayService>();
 builder.Services.AddScoped<IAdminOrderService, AdminOrderService>();
 builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 // ---------- Auth / JWT ----------
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

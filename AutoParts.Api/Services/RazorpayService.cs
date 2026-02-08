@@ -1,4 +1,4 @@
-﻿using Razorpay.Api;
+using Razorpay.Api;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -11,8 +11,8 @@ public class RazorpayService
 
     public RazorpayService(IConfiguration config)
     {
-        _key = config["Razorpay:Key"];
-        _secret = config["Razorpay:Secret"];
+        _key = config["Razorpay:Key"] ?? throw new InvalidOperationException("Razorpay:Key is missing in configuration.");
+        _secret = config["Razorpay:Secret"] ?? throw new InvalidOperationException("Razorpay:Secret is missing in configuration.");
     }
 
     public Order CreateOrder(decimal amount, string receipt)
