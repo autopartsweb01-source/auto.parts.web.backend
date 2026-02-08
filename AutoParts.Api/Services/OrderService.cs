@@ -196,6 +196,7 @@ public class OrderService : IOrderService
             order.PaymentStatus,
             order.Status,
             order.Total,
+            deliveryOtp = order.Status == "OutForDelivery" ? order.DeliveryOtp : null,
             items = order.Items.Select(i => new
             {
                 i.ProductId,

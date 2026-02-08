@@ -14,6 +14,45 @@ public class EmailService
         _logger = logger;
     }
 
+    public async Task SendDeliveryOtpEmailAsync(string toEmail, string otp, int orderId)
+    {
+        var host = _config["Smtp:Host"];
+        var port = int.Parse(_config["Smtp:Port"] ?? "587");
+        var fromEmail = _config["Smtp:Email"];
+        var password = _config["Smtp:Password"];
+
+        if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(fromEmail) || string.IsNullOrEmpty(password))
+        {
+            _logger.LogWarning("[EmailService] SMTP not configured. Skipping email.");
+            return;
+        }
+
+        try
+        {
+            using var client = new SmtpClient(host, port)
+            {
+                Credentials = new NetworkCredential(fromEmail, password),
+                EnableSsl = true
+            };
+
+            var mailMessage = new MailMessage
+            {
+                From = new MailAddress(fromEmail, "Auto Parts"),
+                Subject = $"Delivery OTP for Order #{orderId}",
+                Body = $"Your order #{orderId} is out for delivery. \n\nPlease provide this OTP to the delivery agent: {otp}",
+                IsBodyHtml = false
+            };
+            mailMessage.To.Add(toEmail);
+
+            await client.SendMailAsync(mailMessage);
+            _logger.LogInformation($"Delivery OTP email sent to {toEmail}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Failed to send delivery OTP email to {toEmail}");
+        }
+    }
+
     public async Task SendOtpEmailAsync(string toEmail, string otp)
     {
         var host = _config["Smtp:Host"];

@@ -8,10 +8,12 @@ namespace AutoParts.Api.Services;
 public class AdminOrderService : IAdminOrderService
 {
     private readonly AppDbContext _db;
+    private readonly EmailService _emailService;
 
-    public AdminOrderService(AppDbContext db)
+    public AdminOrderService(AppDbContext db, EmailService emailService)
     {
         _db = db;
+        _emailService = emailService;
     }
 
     // ---------- TIMELINE LOG ----------
@@ -87,6 +89,13 @@ public class AdminOrderService : IAdminOrderService
     {
         var otp = new Random().Next(100000, 999999).ToString();
 
+        // Save plain OTP to Order for User display
+        var order = await _db.Orders.FindAsync(orderId);
+        if (order != null)
+        {
+            order.DeliveryOtp = otp;
+        }
+
         var entry = new OrderDeliveryOtp
         {
             OrderId = orderId,
@@ -100,8 +109,15 @@ public class AdminOrderService : IAdminOrderService
 
         Console.WriteLine($"Delivery OTP {otp} for order {orderId}");
 
+        // Fetch user email to send OTP
+        var user = await _db.Users.FindAsync(order.UserId);
+        if (user != null && !string.IsNullOrEmpty(user.Email))
+        {
+            await _emailService.SendDeliveryOtpEmailAsync(user.Email, otp, orderId);
+        }
+
         await LogTimeline(orderId, "Delivery OTP Generated");
-        return new { message = "OTP generated & sent" };
+        return new { message = "OTP generated & sent via email" };
     }
 
     // ---------- VERIFY DELIVERY OTP ----------
