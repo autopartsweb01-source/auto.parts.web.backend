@@ -20,4 +20,8 @@ public class User
     public DateTime? RefreshTokenExpiryTime { get; set; }
     public string? ResetToken { get; set; }
     public DateTime? ResetTokenExpiry { get; set; }
+
+    public bool IsEmailConfirmed { get; set; }
+    public string? EmailConfirmationToken { get; set; }
+    public DateTime? EmailConfirmationExpiry { get; set; }
 }
