@@ -114,12 +114,47 @@ public class EmailService
                 EnableSsl = true
             };
 
+            var html = $@"<!DOCTYPE html>
+<html>
+<head>
+  <meta charset=""utf-8"" />
+  <title>Reset your password</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background-color: #f5f7fb; margin: 0; padding: 0; }}
+    .wrapper {{ width: 100%; padding: 24px 0; }}
+    .card {{ max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px 28px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); }}
+    .logo {{ font-size: 20px; font-weight: 700; color: #111827; }}
+    .title {{ margin-top: 24px; font-size: 20px; font-weight: 600; color: #111827; }}
+    .text {{ margin-top: 12px; font-size: 14px; line-height: 1.6; color: #4b5563; }}
+    .button {{ display: inline-block; margin-top: 24px; padding: 12px 24px; background: #111827; color: #ffffff; text-decoration: none; border-radius: 999px; font-size: 14px; font-weight: 600; }}
+    .button:hover {{ background: #020617; }}
+    .footer {{ margin-top: 24px; font-size: 12px; color: #9ca3af; }}
+  </style>
+</head>
+<body>
+  <div class=""wrapper"">
+    <div class=""card"">
+      <div class=""logo"">Radhe Shyam Medical</div>
+      <div class=""title"">Reset your password</div>
+      <p class=""text"">
+        You requested to reset the password for your Radhe Shyam Medical account.
+        Tap the button below to open the secure reset page in the app and choose a new password.
+      </p>
+      <a href=""{resetLink}"" class=""button"">Open secure reset page</a>
+      <p class=""footer"">
+        If you did not request this, you can safely ignore this email.
+      </p>
+    </div>
+  </div>
+</body>
+</html>";
+
             var mailMessage = new MailMessage
             {
-                From = new MailAddress(fromEmail, "Auto Parts"),
-                Subject = "Reset Your Password",
-                Body = $"Click the link to reset your password: {resetLink}",
-                IsBodyHtml = false
+                From = new MailAddress(fromEmail, "Radhe Shyam Medical"),
+                Subject = "Reset your password",
+                Body = html,
+                IsBodyHtml = true
             };
             mailMessage.To.Add(toEmail);
 

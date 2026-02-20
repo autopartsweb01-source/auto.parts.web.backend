@@ -249,7 +249,27 @@ public class AuthController : ControllerBase
             return Unauthorized("Invalid credentials");
 
         if (!user.IsEmailConfirmed)
-            return Unauthorized("Please confirm your email");
+        {
+            if (!string.IsNullOrEmpty(user.Email))
+            {
+                var needsNewToken = string.IsNullOrWhiteSpace(user.EmailConfirmationToken)
+                    || user.EmailConfirmationExpiry == null
+                    || user.EmailConfirmationExpiry < DateTime.UtcNow;
+
+                if (needsNewToken)
+                {
+                    var confirmToken = Guid.NewGuid().ToString("N");
+                    user.EmailConfirmationToken = confirmToken;
+                    user.EmailConfirmationExpiry = DateTime.UtcNow.AddDays(1);
+                    await _db.SaveChangesAsync();
+                }
+
+                var confirmLink = $"http://localhost:5221/auth/confirm-email?token={user.EmailConfirmationToken}";
+                await _email.SendRegistrationConfirmationEmailAsync(user.Email, user.FullName, confirmLink);
+            }
+
+            return Unauthorized("Please confirm your email. We have sent a confirmation link to your email address.");
+        }
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             return Unauthorized("Invalid credentials");
