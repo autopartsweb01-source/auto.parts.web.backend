@@ -81,13 +81,13 @@ public class AuthController : ControllerBase
 
         var user = await _db.Users.FirstOrDefaultAsync(x => x.Phone == phone);
         if (user == null)
-            return Unauthorized("User not found");
+            return Unauthorized(new { message = "User not found" });
 
         if (user.OtpExpiry == null || user.OtpExpiry < DateTime.UtcNow)
-            return Unauthorized("OTP expired");
+            return Unauthorized(new { message = "OTP expired" });
 
         if (!BCrypt.Net.BCrypt.Verify(request.Code, user.OtpHash))
-            return Unauthorized("Invalid OTP");
+            return Unauthorized(new { message = "Invalid OTP" });
 
         var token = _jwt.Generate(user);
 
@@ -113,7 +113,7 @@ public class AuthController : ControllerBase
         if (existingByEmail != null)
         {
             if (existingByEmail.IsEmailConfirmed)
-                return BadRequest("Email already exists");
+                return BadRequest(new { message = "Email already exists" });
 
             var resendToken = Guid.NewGuid().ToString("N");
             existingByEmail.EmailConfirmationToken = resendToken;
@@ -131,7 +131,7 @@ public class AuthController : ControllerBase
         if (existingByPhone != null)
         {
             if (existingByPhone.IsEmailConfirmed)
-                return BadRequest("Phone already exists");
+                return BadRequest(new { message = "Phone already exists" });
 
             existingByPhone.Email = request.Email;
             existingByPhone.FullName = request.Name;
@@ -181,14 +181,14 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ConfirmEmail([FromQuery] string token)
     {
         if (string.IsNullOrWhiteSpace(token))
-            return BadRequest("Invalid token");
+            return BadRequest(new { message = "Invalid token" });
 
         var user = await _db.Users.FirstOrDefaultAsync(u => u.EmailConfirmationToken == token);
         if (user == null)
-            return BadRequest("Invalid token");
+            return BadRequest(new { message = "Invalid token" });
 
         if (user.EmailConfirmationExpiry != null && user.EmailConfirmationExpiry < DateTime.UtcNow)
-            return BadRequest("Token expired");
+            return BadRequest(new { message = "Token expired" });
 
         user.IsEmailConfirmed = true;
         user.EmailConfirmationToken = null;
@@ -246,7 +246,7 @@ public class AuthController : ControllerBase
         );
 
         if (user == null || string.IsNullOrEmpty(user.PasswordHash))
-            return Unauthorized("Invalid credentials");
+            return Unauthorized(new { message = "Invalid credentials" });
 
         if (!user.IsEmailConfirmed)
         {
@@ -268,11 +268,11 @@ public class AuthController : ControllerBase
                 await _email.SendRegistrationConfirmationEmailAsync(user.Email, user.FullName, confirmLink);
             }
 
-            return Unauthorized("Please confirm your email. We have sent a confirmation link to your email address.");
+            return Unauthorized(new { message = "Please confirm your email. We have sent a confirmation link to your email address." });
         }
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-            return Unauthorized("Invalid credentials");
+            return Unauthorized(new { message = "Invalid credentials" });
 
         var token = _jwt.Generate(user);
 
@@ -310,7 +310,7 @@ public class AuthController : ControllerBase
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
         if (user == null || user.ResetToken != request.Token || user.ResetTokenExpiry < DateTime.UtcNow)
-            return BadRequest("Invalid or expired token");
+            return BadRequest(new { message = "Invalid or expired token" });
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         user.ResetToken = null;

@@ -97,7 +97,7 @@ public class OrdersController : ControllerBase
                         result = await _adminOrderService.MarkDelivered(id);
                     break;
                 default:
-                    return BadRequest("Invalid status");
+                    return BadRequest(new { message = "Invalid status" });
             }
             return Ok(new { success = true, data = result });
         }
