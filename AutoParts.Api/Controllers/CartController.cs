@@ -9,14 +9,28 @@ using static AutoParts.Api.DTO.CartDtos;
 public class CartController : ControllerBase
 {
     private readonly ICartService _cart;
+    private readonly IUserService _users;
 
-    public CartController(ICartService cart)
+    public CartController(ICartService cart, IUserService users)
     {
         _cart = cart;
+        _users = users;
     }
 
-    private int GetUserId() =>
-        int.Parse(User.Claims.First(x => x.Type == "id").Value);
+    private int GetUserId()
+    {
+        var idClaim = User.Claims.FirstOrDefault(x => x.Type == "id")?.Value;
+        if (int.TryParse(idClaim, out var uid)) return uid;
+
+        var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+                 ?? User.FindFirst("email")?.Value;
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var u = _users.GetUserByEmailAsync(email).GetAwaiter().GetResult();
+            if (u != null) return u.Id;
+        }
+        return 0;
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetCart() =>

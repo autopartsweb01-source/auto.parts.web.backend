@@ -1,6 +1,9 @@
 using AutoParts.Api.Auth;
 using AutoParts.Api.Data;
 using AutoParts.Api.Services;
+using AutoParts.Api.Services.ClientApi;
+using AutoParts.Api.Services.Security;
+using AutoParts.Api.Infrastructure.Http;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -25,8 +28,24 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<RazorpayService>();
 builder.Services.AddScoped<IAdminOrderService, AdminOrderService>();
-builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<ITokenStore, InMemoryTokenStore>();
+builder.Services.AddTransient<AuthForwardingHandler>();
+builder.Services.AddHttpClient<IAuthApiClient, AuthApiClient>(c =>
+{
+    c.BaseAddress = new Uri("https://hisuatchemistapi.ongc.co.in/api/");
+    c.DefaultRequestHeaders.Accept.Clear();
+    c.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddHttpClient<IUserApiClient, UserApiClient>(c =>
+{
+    c.BaseAddress = new Uri("https://hisuatchemistapi.ongc.co.in/api/");
+}).AddHttpMessageHandler<AuthForwardingHandler>();
+builder.Services.AddHttpClient<IOtpApiClient, OtpApiClient>(c =>
+{
+    c.BaseAddress = new Uri("https://hisuatchemistapi.ongc.co.in/api/");
+}).AddHttpMessageHandler<AuthForwardingHandler>();
 
 // ---------- Auth / JWT ----------
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -34,13 +53,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 {
     opt.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+        // Accept external JWTs (ONGC Chemist API) without local secret.
+        // We validate lifetime and read claims; issuer/audience/signature are not enforced.
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateIssuerSigningKey = false,
+        RequireSignedTokens = false,
+        ValidateLifetime = true,
+    };
+    opt.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = ctx =>
+        {
+            // Support 'Authorization: Bearer <token>' normally; no changes needed.
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -92,6 +119,7 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+    c.CustomSchemaIds(type => type.FullName?.Replace("+", "."));
 });
 
 var app = builder.Build();

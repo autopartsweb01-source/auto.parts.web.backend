@@ -1,10 +1,9 @@
-﻿using AutoParts.Api.Services;
+using AutoParts.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("admin/orders")]
-[Authorize(Roles = "Admin")]
 public class AdminOrdersController : ControllerBase
 {
     private readonly IAdminOrderService _svc;

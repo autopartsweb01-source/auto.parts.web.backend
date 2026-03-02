@@ -11,22 +11,29 @@ public class OrdersController : ControllerBase
     private readonly IOrderService _orders;
     private readonly ICartService _cartService;
     private readonly IAdminOrderService _adminOrderService;
+    private readonly IUserService _userService;
 
-    public OrdersController(IOrderService orders, ICartService cartService, IAdminOrderService adminOrderService)
+    public OrdersController(IOrderService orders, ICartService cartService, IAdminOrderService adminOrderService, IUserService userService)
     {
         _orders = orders;
         _cartService = cartService;
         _adminOrderService = adminOrderService;
+        _userService = userService;
     }
     private int UserId()
     {
-        // Try standard "sub" or "nameidentifier"
-        var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier) 
-                 ?? User.FindFirst("id");
-                 
-        if (claim != null && int.TryParse(claim.Value, out int id))
-            return id;
-            
+        // Try standard numeric id first
+        var claim = User.FindFirst("id");
+        if (claim != null && int.TryParse(claim.Value, out int id)) return id;
+
+        // Fallback: external JWTs carry email and nameidentifier (guid). Resolve by email.
+        var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+                 ?? User.FindFirst("email")?.Value;
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var user = _userService.GetUserByEmailAsync(email).GetAwaiter().GetResult();
+            if (user != null) return user.Id;
+        }
         return 0;
     }
 

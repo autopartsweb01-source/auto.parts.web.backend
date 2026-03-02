@@ -70,7 +70,7 @@ public class ProductsController : ControllerBase
 
     // ---------- DELETE PRODUCT ----------
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     public async Task<IActionResult> Delete(int id)
     {
         var product = await _db.Products.FindAsync(id);
@@ -82,7 +82,7 @@ public class ProductsController : ControllerBase
 
     // ---------- BULK DELETE ----------
     [HttpPost("delete-bulk")]
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     public async Task<IActionResult> DeleteBulk([FromBody] List<int> ids)
     {
         var products = await _db.Products.Where(p => ids.Contains(p.Id)).ToListAsync();

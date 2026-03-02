@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 [ApiController]
 [Route("auth")]
+[ApiExplorerSettings(IgnoreApi = true)]
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _db;

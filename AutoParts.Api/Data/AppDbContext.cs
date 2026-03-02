@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using AutoParts.Api.Domain;
 
 namespace AutoParts.Api.Data;
@@ -15,5 +15,4 @@ public class AppDbContext : DbContext
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<OrderDeliveryOtp> OrderOtps { get; set; }
     public DbSet<OrderTimeline> OrderTimelines { get; set; }
-    public DbSet<ChatMessage> ChatMessages { get; set; }
 }
