@@ -8,6 +8,7 @@ namespace AutoParts.Api.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[ApiExplorerSettings(IgnoreApi = true)]
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
