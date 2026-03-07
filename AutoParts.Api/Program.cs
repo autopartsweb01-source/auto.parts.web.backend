@@ -53,13 +53,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 {
     opt.TokenValidationParameters = new TokenValidationParameters
     {
-        // Accept external JWTs (ONGC Chemist API) without local secret.
-        // We validate lifetime and read claims; issuer/audience/signature are not enforced.
         ValidateIssuer = false,
         ValidateAudience = false,
         ValidateIssuerSigningKey = false,
         RequireSignedTokens = false,
         ValidateLifetime = true,
+        SignatureValidator = (token, parameters) => new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(token)
     };
     opt.Events = new JwtBearerEvents
     {

@@ -18,6 +18,23 @@ public class UserService : IUserService
         return await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
     }
 
+    public async Task<User> EnsureUserByEmailAsync(string email, string? name, string? phone, string? location = null)
+    {
+        var existing = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (existing != null) return existing;
+        var user = new User
+        {
+            Email = email,
+            FullName = name ?? "Customer",
+            Phone = phone,
+            Location = location,
+            Role = "customer"
+        };
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+        return user;
+    }
+
     public async Task<(List<User> Items, int Total)> GetAllUsersAsync(string? search, int page, int size)
     {
         var query = _db.Users.AsQueryable();
