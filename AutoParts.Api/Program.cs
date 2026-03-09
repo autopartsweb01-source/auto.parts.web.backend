@@ -84,7 +84,9 @@ builder.Services.AddCors(options =>
                 "https://radhesyam.com",
                 "https://www.radhesyam.com",
                 "https://sitarammedical.com",
-                "https://www.sitarammedical.com")
+                "https://www.sitarammedical.com",
+                "http://localhost:4200",
+                "http://127.0.0.1:4200")
               .SetIsOriginAllowedToAllowWildcardSubdomains()
               .AllowAnyMethod()
               .AllowAnyHeader());
