@@ -21,6 +21,8 @@
     <PackageReference Include="Razorpay" Version="3.3.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.*" />
     <PackageReference Include="Twilio" Version="7.14.0" />
+    <PackageReference Include="PdfPig" Version="0.1.13" />
+    <PackageReference Include="Tesseract" Version="4.1.1" />
   </ItemGroup>
 
 </Project>

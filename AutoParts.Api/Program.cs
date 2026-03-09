@@ -29,6 +29,7 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<RazorpayService>();
 builder.Services.AddScoped<IAdminOrderService, AdminOrderService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IOcrService, OcrService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ITokenStore, InMemoryTokenStore>();
 builder.Services.AddTransient<AuthForwardingHandler>();
@@ -93,6 +94,8 @@ builder.Services.AddSwaggerGen(c =>
         Title = "AutoParts API",
         Version = "v1"
     });
+    c.MapType<IFormFile>(() => new OpenApiSchema { Type = "string", Format = "binary" });
+    c.MapType<IEnumerable<IFormFile>>(() => new OpenApiSchema { Type = "array", Items = new OpenApiSchema { Type = "string", Format = "binary" } });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
