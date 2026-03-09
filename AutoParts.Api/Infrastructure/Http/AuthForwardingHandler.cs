@@ -25,13 +25,32 @@ public class AuthForwardingHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var sid = _httpContextAccessor.HttpContext?.Request.Cookies["sid"];
+        var http = _httpContextAccessor.HttpContext;
+        var sid = http?.Request.Cookies["sid"];
+        // Fallback: allow direct Bearer token from incoming request (e.g., Swagger)
+        var incomingAuth = http?.Request.Headers["Authorization"].ToString();
         if (string.IsNullOrEmpty(sid))
+        {
+            if (!string.IsNullOrWhiteSpace(incomingAuth) && incomingAuth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                var token = incomingAuth.Substring("Bearer ".Length).Trim();
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                return await base.SendAsync(request, cancellationToken);
+            }
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        }
 
         var tokens = await _tokenStore.GetAsync(sid, cancellationToken);
         if (tokens is null)
+        {
+            if (!string.IsNullOrWhiteSpace(incomingAuth) && incomingAuth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                var token = incomingAuth.Substring("Bearer ".Length).Trim();
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                return await base.SendAsync(request, cancellationToken);
+            }
             return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        }
 
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
         var response = await base.SendAsync(request, cancellationToken);

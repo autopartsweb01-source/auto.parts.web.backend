@@ -116,6 +116,10 @@ public class AuthController : ControllerBase
             if (existingByEmail.IsEmailConfirmed)
                 return BadRequest(new { message = "Email already exists" });
 
+            // Update address/location before resending confirmation for unconfirmed account
+            existingByEmail.Location = request.Location;
+            existingByEmail.Address = request.Location;
+
             var resendToken = Guid.NewGuid().ToString("N");
             existingByEmail.EmailConfirmationToken = resendToken;
             existingByEmail.EmailConfirmationExpiry = DateTime.UtcNow.AddDays(1);
@@ -137,6 +141,7 @@ public class AuthController : ControllerBase
             existingByPhone.Email = request.Email;
             existingByPhone.FullName = request.Name;
             existingByPhone.Location = request.Location;
+            existingByPhone.Address = request.Location;
             existingByPhone.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
             var resendToken = Guid.NewGuid().ToString("N");
@@ -159,6 +164,7 @@ public class AuthController : ControllerBase
             Email = request.Email,
             Phone = normalizedPhone,
             Location = request.Location,
+            Address = request.Location,
             Role = "customer",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             IsEmailConfirmed = false,
