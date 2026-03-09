@@ -79,8 +79,13 @@ builder.Services.AddControllers();
 // ---------- CORS ----------
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        b => b.AllowAnyOrigin()
+    options.AddPolicy("AllowWeb",
+        b => b.WithOrigins(
+                "https://radhesyam.com",
+                "https://www.radhesyam.com",
+                "https://sitarammedical.com",
+                "https://www.sitarammedical.com")
+              .SetIsOriginAllowedToAllowWildcardSubdomains()
               .AllowAnyMethod()
               .AllowAnyHeader());
 });
@@ -133,7 +138,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowAll");
+app.UseCors("AllowWeb");
 
 // app.UseHttpsRedirection();
 
