@@ -85,6 +85,7 @@ builder.Services.AddCors(options =>
                 "https://www.radhesyam.com",
                 "https://sitarammedical.com",
                 "https://www.sitarammedical.com",
+                "https://auto-parts-web.vercel.app",
                 "http://localhost:4200",
                 "http://127.0.0.1:4200")
               .SetIsOriginAllowedToAllowWildcardSubdomains()
