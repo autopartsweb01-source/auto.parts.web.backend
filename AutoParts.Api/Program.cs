@@ -135,7 +135,8 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // ---------- Pipeline ----------
-if (app.Environment.IsDevelopment())
+var swaggerEnabled = app.Configuration.GetValue<bool>("Swagger:Enabled");
+if (swaggerEnabled || app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
