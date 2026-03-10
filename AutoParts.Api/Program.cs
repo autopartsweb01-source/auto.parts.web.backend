@@ -83,6 +83,8 @@ builder.Services.AddCors(options =>
         b => b.WithOrigins(
                 "https://radhesyam.com",
                 "https://www.radhesyam.com",
+                "http://radhesyam.com",
+                "http://www.radhesyam.com",
                 "https://sitarammedical.com",
                 "https://www.sitarammedical.com",
                 "https://auto-parts-web.vercel.app",
@@ -90,7 +92,8 @@ builder.Services.AddCors(options =>
                 "http://127.0.0.1:4200")
               .SetIsOriginAllowedToAllowWildcardSubdomains()
               .AllowAnyMethod()
-              .AllowAnyHeader());
+              .AllowAnyHeader()
+              .AllowCredentials());
 });
 
 // ---------- Swagger + JWT Support ----------

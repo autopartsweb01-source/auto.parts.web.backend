@@ -1,4 +1,4 @@
-﻿using AutoParts.Api.DTO;
+using AutoParts.Api.DTO;
 
 namespace AutoParts.Api.Services;
 
@@ -13,4 +13,7 @@ public interface IOrderService
     Task<object> GetMyOrders(int userId, int page, int size);
 
     Task<object> GetOrderDetails(int userId, int orderId);
+
+    Task<object> VendorInitCheckout(int userId, VendorCheckoutInitRequest req);
+    Task<object> VendorVerifyOtp(int userId, VendorVerifyOtpRequest req);
 }

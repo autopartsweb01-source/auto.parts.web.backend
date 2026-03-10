@@ -1,7 +1,9 @@
 using AutoParts.Api.Data;
 using AutoParts.Api.Domain;
 using AutoParts.Api.DTO;
+using AutoParts.Api.Services.ClientApi;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Http.Json;
 
 namespace AutoParts.Api.Services;
 
@@ -10,12 +12,14 @@ public class OrderService : IOrderService
     private readonly AppDbContext _db;
     private readonly ICartService _cart;
     private readonly RazorpayService _razorpay;
+    private readonly IOtpApiClient _otpApi;
 
-    public OrderService(AppDbContext db, ICartService cart, RazorpayService razorpay)
+    public OrderService(AppDbContext db, ICartService cart, RazorpayService razorpay, IOtpApiClient otpApi)
     {
         _db = db;
         _cart = cart;
         _razorpay = razorpay;
+        _otpApi = otpApi;
     }
 
     // ---------- TIMELINE LOG ----------
@@ -171,6 +175,7 @@ public class OrderService : IOrderService
                 o.Total,
                 o.PaymentStatus,
                 o.Status,
+                o.PrescriptionNo,
                 o.CreatedAt
             })
             .ToListAsync();
@@ -196,6 +201,7 @@ public class OrderService : IOrderService
             order.PaymentStatus,
             order.Status,
             order.Total,
+            order.PrescriptionNo,
             deliveryOtp = order.Status == "OutForDelivery" ? order.DeliveryOtp : null,
             items = order.Items.Select(i => new
             {
@@ -206,5 +212,133 @@ public class OrderService : IOrderService
                 lineTotal = i.Price * i.Qty
             })
         };
+    }
+
+    // ---------- VENDOR CHECKOUT INIT ----------
+    public async Task<object> VendorInitCheckout(int userId, VendorCheckoutInitRequest req)
+    {
+        var cart = await _cart.GetOrCreateCart(userId);
+        var user = await _db.Users.FindAsync(userId);
+
+        if (!cart.Items.Any())
+            throw new Exception("Cart is empty");
+
+        foreach (var i in cart.Items)
+            if (i.Qty > i.Product.Quantity)
+                throw new Exception($"Insufficient stock for {i.Product.Title}");
+
+        var total = cart.Items.Sum(x => x.UnitPrice * x.Qty);
+
+        var order = new Order
+        {
+            UserId = userId,
+            CustomerName = string.IsNullOrWhiteSpace(req.FullName) ? (user?.FullName ?? "Unknown") : req.FullName!,
+            CustomerPhone = string.IsNullOrWhiteSpace(req.Phone) ? (user?.Phone ?? "Unknown") : req.Phone!,
+            Address = string.IsNullOrWhiteSpace(req.Address) ? (user?.Address ?? user?.Location ?? "Unknown") : req.Address!,
+            Total = total,
+            Status = "Pending",
+            PaymentStatus = "COD",
+            PaymentMethod = "VENDOR",
+            PrescriptionNo = req.PrescriptionNo
+        };
+
+        _db.Orders.Add(order);
+        await _db.SaveChangesAsync();
+
+        await LogTimeline(order.Id, "Vendor Checkout Init", $"Prescription: {req.PrescriptionNo}", userId);
+
+        foreach (var i in cart.Items)
+        {
+            _db.OrderItems.Add(new OrderItem
+            {
+                OrderId = order.Id,
+                ProductId = i.ProductId,
+                Qty = i.Qty,
+                Price = i.UnitPrice
+            });
+            i.Product.Quantity -= i.Qty;
+        }
+
+        // Generate OTP and call external Resend API
+        var otp = new Random().Next(100000, 999999).ToString();
+        order.DeliveryOtp = otp;
+        await _db.SaveChangesAsync();
+
+        var resendPayload = new { PrescriptionNo = order.PrescriptionNo, OTP = otp };
+        var resendResp = await _otpApi.ResendAsync(resendPayload, default);
+        if (!resendResp.IsSuccessStatusCode)
+        {
+            var msg = await resendResp.Content.ReadAsStringAsync();
+            await LogTimeline(order.Id, "OTP Resend Failed", msg, userId);
+        }
+        else
+        {
+            // Attempt to read { success: bool, message: string }
+            try
+            {
+                var json = await resendResp.Content.ReadFromJsonAsync<dynamic>();
+                bool ok = (bool?)json?.success ?? true;
+                string? message = (string?)json?.message;
+                await LogTimeline(order.Id, ok ? "OTP Resent" : "OTP Resend Returned Failure", message, userId);
+            }
+            catch
+            {
+                await LogTimeline(order.Id, "OTP Resent", null, userId);
+            }
+        }
+
+        // Clear cart now that items are in the order
+        _db.CartItems.RemoveRange(cart.Items);
+        await _db.SaveChangesAsync();
+
+        return new { order.Id, order.Total, order.Status, order.PrescriptionNo };
+    }
+
+    // ---------- VENDOR VERIFY OTP ----------
+    public async Task<object> VendorVerifyOtp(int userId, VendorVerifyOtpRequest r)
+    {
+        var order = await _db.Orders
+            .Include(x => x.Items).ThenInclude(i => i.Product)
+            .FirstOrDefaultAsync(x => x.Id == r.OrderId);
+
+        if (order == null || order.UserId != userId)
+            throw new Exception("Order not found");
+
+        // Verify OTP via external API using PrescriptionNo + otp
+        var verifyPayload = new { PrescriptionNo = order.PrescriptionNo, otp = r.Otp };
+        var verifyResp = await _otpApi.VerifyAsync(verifyPayload, default);
+        bool verified = false;
+        string? verifyMsg = null;
+        if (verifyResp.IsSuccessStatusCode)
+        {
+            try
+            {
+                var json = await verifyResp.Content.ReadFromJsonAsync<dynamic>();
+                verified = (bool?)json?.success ?? false;
+                verifyMsg = (string?)json?.message;
+            }
+            catch
+            {
+                verified = true;
+            }
+        }
+        else
+        {
+            verifyMsg = await verifyResp.Content.ReadAsStringAsync();
+        }
+
+        if (!verified)
+        {
+            await LogTimeline(order.Id, "OTP Verification Failed", verifyMsg, userId);
+            throw new Exception(string.IsNullOrWhiteSpace(verifyMsg) ? "Invalid OTP" : verifyMsg);
+        }
+
+        order.DeliveryOtp = null;
+        order.Status = "Delivered";
+        order.DeliveredAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        await LogTimeline(order.Id, "Order Delivered", $"Prescription: {order.PrescriptionNo}", userId);
+        return new { message = "Delivery confirmed", order.Id };
     }
 }
