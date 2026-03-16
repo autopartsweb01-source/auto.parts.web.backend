@@ -35,17 +35,17 @@ builder.Services.AddSingleton<ITokenStore, InMemoryTokenStore>();
 builder.Services.AddTransient<AuthForwardingHandler>();
 builder.Services.AddHttpClient<IAuthApiClient, AuthApiClient>(c =>
 {
-    c.BaseAddress = new Uri("https://hisuatchemistapi.ongc.co.in/api/");
+    c.BaseAddress = new Uri("https://hischemistapi.ongc.co.in/api/");
     c.DefaultRequestHeaders.Accept.Clear();
     c.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 });
 builder.Services.AddHttpClient<IUserApiClient, UserApiClient>(c =>
 {
-    c.BaseAddress = new Uri("https://hisuatchemistapi.ongc.co.in/api/");
+    c.BaseAddress = new Uri("https://hischemistapi.ongc.co.in/api/");
 }).AddHttpMessageHandler<AuthForwardingHandler>();
 builder.Services.AddHttpClient<IOtpApiClient, OtpApiClient>(c =>
 {
-    c.BaseAddress = new Uri("https://hisuatchemistapi.ongc.co.in/api/");
+    c.BaseAddress = new Uri("https://hischemistapi.ongc.co.in/api/");
 }).AddHttpMessageHandler<AuthForwardingHandler>();
 
 // ---------- Auth / JWT ----------
